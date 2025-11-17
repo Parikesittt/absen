@@ -1,5 +1,6 @@
 import 'package:absen/core/config/app_router.dart';
 import 'package:absen/core/services/prefs_service.dart';
+import 'package:absen/data/models/user_model.dart';
 import 'package:absen/features/auth/data/auth_repository.dart';
 import 'package:absen/features/auth/data/models/login_request.dart';
 import 'package:auto_route/auto_route.dart';
@@ -35,9 +36,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final result = await authRepo.loginUser(request: request);
-      PrefsService.saveToken(result.data?.token ?? "");
+      final token = result.data?.token ?? "";
+      final userMap = result.data?.user;
+      final rawUser = userMap?.toJson();
+      PrefsService.saveToken(token);
+      if (rawUser != null) {
+        final user = UserModel.fromJson(rawUser);
+        PrefsService.saveUserJson(user);
+      }
+      // PrefsService.saveUserJson(result.data!.user);
       if (context.mounted) {
-        context.router.replacePath('/dashboard');
+        context.router.replacePath('/main');
       }
     } catch (e) {
       print("ERROR LOGIN: $e");

@@ -1,8 +1,11 @@
+
 import 'package:auto_route/auto_route.dart';
 import 'package:absen/features/auth/register/register_screen.dart';
 import 'package:absen/features/auth/login/login_screen.dart';
 import 'package:absen/features/dashboard/dashboard_screen.dart';
 import 'package:absen/features/attendance/attendance_screen.dart';
+import 'package:absen/features/profile/profile_screen.dart';
+import 'package:absen/ui/shell/main_scaffold.dart';
 import 'package:flutter/material.dart';
 
 part 'app_router.gr.dart';
@@ -14,9 +17,11 @@ class AppRouter extends RootStackRouter {
 
   @override
   List<AutoRoute> get routes => [
+    AutoRoute(page: MainScaffoldRoute.page, path: '/main'),
+    AutoRoute(page: DashboardRoute.page, path: '/dashboard'),
+    AutoRoute(page: ProfileRoute.page, path: '/profile'),
     AutoRoute(page: LoginRoute.page, initial: true, path: '/login'),
     AutoRoute(page: RegisterRoute.page, path: '/register'),
-    AutoRoute(page: DashboardRoute.page, path: '/dashboard'),
     AutoRoute(page: AttendanceRoute.page, path: '/attendance'),
   ];
 }
