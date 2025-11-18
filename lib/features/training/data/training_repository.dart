@@ -2,7 +2,6 @@ import 'package:absen/core/constant/endpoint.dart';
 import 'package:absen/core/services/http_service.dart';
 import 'package:absen/data/models/training_model.dart';
 
-
 class TrainingRepository {
   // final TrainingRemoteSource remote;
 
@@ -12,9 +11,13 @@ class TrainingRepository {
   //   final res = await remote.getTraining();
   //   return res.data ?? [];
   // }
-  final api = HttpService();
+  final HttpService _api = HttpService();
   Future<TrainingModel> getAllTraining() async {
-    final json = await api.get(Endpoint.trainings);
-    return TrainingModel.fromJson(json);
+    try {
+      final json = await _api.get(Endpoint.trainings);
+      return TrainingModel.fromJson(json);
+    } on Exception {
+      rethrow;
+    }
   }
 }

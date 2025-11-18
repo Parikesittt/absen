@@ -9,6 +9,7 @@ import 'package:absen/data/models/training_model.dart';
 import 'package:absen/features/training/data/training_repository.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'widgets/profile_upload_widget.dart';
@@ -36,6 +37,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String? selectedGender;
   String? base64Photo;
+  File? _pickedFile;
+  String? _pickedBase64;
 
   final authRepo = AuthRepository();
   final trainingRepo = TrainingRepository();
@@ -51,6 +54,66 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() {
       base64Photo = "data:image/png;base64,${base64Encode(bytes)}";
     });
+  }
+
+  Future<void> _pickImage(ImageSource src) async {
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(
+        source: src,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 80,
+      );
+      if (file == null) return;
+      final bytes = await File(file.path).readAsBytes();
+      final b64 = base64Encode(bytes);
+      setState(() {
+        _pickedFile = File(file.path);
+        _pickedBase64 = 'data:image/png;base64,$b64';
+      });
+    } catch (e) {
+      debugPrint('pick image error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Gagal memilih gambar')));
+      }
+    }
+  }
+
+  Future<void> _showPickOptions() async {
+    showModalBottomSheet(
+      context: context,
+      builder: (c) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Pilih dari galeri'),
+              onTap: () {
+                Navigator.of(c).pop();
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Ambil foto'),
+              onTap: () {
+                Navigator.of(c).pop();
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: const Text('Batal'),
+              onTap: () => Navigator.of(c).pop(),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void loadData() {
@@ -78,13 +141,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
       email: emailC.text,
       password: passwordC.text.isEmpty ? "Password123!" : passwordC.text,
       jenisKelamin: selectedGender!,
-      profilePhoto: base64Photo!,
+      profilePhoto: _pickedBase64!,
       batchId: 1,
       trainingId: 1,
     );
 
     try {
       final result = await authRepo.registerUser(request: request);
+      if (result.message == 'Email sudah terdaftar.') {
+        Fluttertoast.showToast(
+          msg: result.message!,
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.CENTER,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+      }
       // PrefsService.saveToken(result.data?.token ?? "");
       if (context.mounted) {
         context.router.replacePath('/login');
@@ -107,7 +181,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            ProfileUploadWidget(onTap: pickPhoto),
+            // ProfileUploadWidget(onTap: _showPickOptions),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                children: [
+                  _buildAvatar(),
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: _showPickOptions,
+                    icon: const Icon(
+                      Icons.camera_alt,
+                      color: Color(0xFF0EA5E9),
+                    ),
+                    label: const Text(
+                      'Ubah Foto',
+                      style: TextStyle(color: Color(0xFF0EA5E9)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
             const SizedBox(height: 20),
 
@@ -229,6 +323,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
             AppButton(text: "Daftar Sekarang", onPressed: submit),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar() {
+    // priority: picked image -> cached user profilePhotoUrl -> initials placeholder
+    if (_pickedFile != null) {
+      return CircleAvatar(
+        radius: 44,
+        backgroundColor: Colors.grey[200],
+        backgroundImage: FileImage(_pickedFile!),
+      );
+    }
+
+    final initials = (nameC.text.trim())
+        .split(' ')
+        .map((s) => s.isNotEmpty ? s[0] : '')
+        .take(2)
+        .join();
+    return CircleAvatar(
+      radius: 44,
+      backgroundColor: const Color(0xFF0EA5E9).withOpacity(0.15),
+      child: Text(
+        initials.toUpperCase(),
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
       ),
     );
   }

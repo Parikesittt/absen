@@ -1,5 +1,6 @@
 // lib/ui/main_scaffold.dart
 import 'package:absen/features/dashboard/dashboard_screen.dart';
+import 'package:absen/features/history/history_screen.dart';
 import 'package:absen/features/profile/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:auto_route/auto_route.dart';
@@ -18,6 +19,7 @@ class _MainScaffoldScreenState extends State<MainScaffoldScreen> {
   // create the pages once so their state is preserved
   final List<Widget> _pages = const [
     DashboardScreen(key: PageStorageKey('dashboard')),
+    HistoryScreen(key: PageStorageKey('history')),
     ProfileScreen(key: PageStorageKey('profile')),
   ];
 
@@ -36,16 +38,16 @@ class _MainScaffoldScreenState extends State<MainScaffoldScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       // app bar bisa berubah per tab — jika mau, handle conditional AppBar here
-      appBar: AppBar(
-        title: Text(
-          _selectedIndex == 0
-              ? 'Dashboard'
-              // : _selectedIndex == 1
-              // ? 'Attendance'
-              : 'Profile',
-        ),
-        backgroundColor: const Color(0xFF4A60F0), // primary
-      ),
+      // appBar: AppBar(
+      //   title: Text(
+      //     _selectedIndex == 0
+      //         ? 'Dashboard'
+      //         // : _selectedIndex == 1
+      //         // ? 'Attendance'
+      //         : 'Profile',
+      //   ),
+      //   backgroundColor: const Color(0xFF4A60F0), // primary
+      // ),
       body: PageStorage(
         bucket: _bucket,
         child: IndexedStack(index: _selectedIndex, children: _pages),
@@ -58,6 +60,7 @@ class _MainScaffoldScreenState extends State<MainScaffoldScreen> {
         showUnselectedLabels: true,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),

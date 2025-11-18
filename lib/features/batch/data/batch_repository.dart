@@ -12,9 +12,13 @@ class BatchRepository {
   //   return res.data ?? [];
   // }
 
-  final api = HttpService();
+  final HttpService _api = HttpService();
   Future<BatchModel> getAllBatch() async {
-    final json = await api.get(Endpoint.batches);
-    return BatchModel.fromJson(json);
+    try {
+      final json = await _api.get(Endpoint.batches);
+      return BatchModel.fromJson(json);
+    } on Exception {
+      rethrow;
+    }
   }
 }

@@ -1,18 +1,17 @@
 import 'package:absen/core/config/app_router.dart';
 import 'package:absen/core/providers/theme_provider.dart';
+import 'package:absen/core/services/auth_manager.dart';
 import 'package:absen/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart' as rp;
 import 'package:provider/provider.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  AuthManager.init(navigatorKey);
   runApp(
-    rp.ProviderScope(                     // <= WAJIB ADA UNTUK RIVERPOD
-      child: ChangeNotifierProvider(
-        create: (_) => ThemeProvider(),
-        child: MyApp(),
-      ),
-    ),
+    ChangeNotifierProvider(create: (_) => ThemeProvider(), child: MyApp()),
   );
 }
 

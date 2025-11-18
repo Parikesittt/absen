@@ -1,5 +1,3 @@
-import 'package:absen/core/config/api_config.dart';
-
 class Endpoint {
   static const String register = "/register";
   static const String login = "/login";
@@ -9,4 +7,7 @@ class Endpoint {
   static const String historyAbsen = "/absen/history";
   static const String checkIn = "/absen/check-in";
   static const String checkOut = "/absen/check-out";
+  static const String updateProfilePhoto = "/profile/photo";
+  static const String todayAttendance = "/absen/today";
+  static const String presenceStats = "/absen/stats";
 }
