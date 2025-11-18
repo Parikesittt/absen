@@ -66,7 +66,7 @@ class DashboardRepository {
 
       // Kita panggil endpoint with query param "date"
       // Endpoint.historyAbsen mis. '/absen/history' => jadi jadi '/absen/history?date=2025-11-17'
-      final endpointWithQuery = '${Endpoint.historyAbsen}?date=$dateStr';
+      final endpointWithQuery = '${Endpoint.todayPresence}?date=$dateStr';
 
       final json = await _api.get(endpointWithQuery);
       final model = PresenceHistoryModel.fromJson(json);

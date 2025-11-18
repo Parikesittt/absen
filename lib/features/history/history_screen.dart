@@ -3,8 +3,10 @@ import 'package:absen/core/services/auth_manager.dart';
 import 'package:absen/core/services/http_service.dart';
 import 'package:absen/data/models/presence_history_model.dart';
 import 'package:absen/features/dashboard/data/dashboard_repository.dart';
+import 'package:absen/features/history/data/history_repository.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -18,9 +20,13 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   final repo = DashboardRepository();
+  final historyRepo = HistoryRepository();
   bool _loading = true;
   String? _error;
   List<Presence> _histories = [];
+
+  // track deleting state per id
+  final Map<int, bool> _deleting = {};
 
   @override
   void initState() {
@@ -68,6 +74,59 @@ class _HistoryScreenState extends State<HistoryScreen> {
       return DateFormat('EEE, dd MMM yyyy').format(d);
     } catch (_) {
       return d.toIso8601String();
+    }
+  }
+
+  Future<void> _confirmAndDelete(int id) async {
+    final should = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus Absen'),
+        content: const Text(
+          'Apakah Anda yakin ingin menghapus data absen ini? Tindakan ini tidak dapat dibatalkan.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (should != true) return;
+
+    await _deleteHistory(id);
+  }
+
+  Future<void> _deleteHistory(int id) async {
+    // set deleting flag
+    setState(() {
+      _deleting[id] = true;
+    });
+
+    try {
+      await historyRepo.deleteHistory(id: id);
+      Fluttertoast.showToast(msg: 'Berhasil menghapus absen');
+      await _loadHistory();
+    } on UnauthorizedException {
+      await AuthManager.handleUnauthorized(loginRoute: '/login');
+    } on ApiException catch (e) {
+      final msg = e.message ?? 'Gagal menghapus absen';
+      Fluttertoast.showToast(msg: msg);
+    } catch (e) {
+      debugPrint('Delete history error: $e');
+      Fluttertoast.showToast(msg: 'Terjadi kesalahan saat menghapus');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _deleting.remove(id);
+        });
+      }
     }
   }
 
@@ -211,6 +270,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _buildHistoryItem(Presence history) {
     final statusValue = history.status.value; // 'masuk' / 'izin' / 'unknown'
     final statusLabel = history.status.label; // display label
+    final deleting = _deleting[history.id] == true;
 
     return Container(
       margin: const EdgeInsets.only(top: 12, bottom: 6),
@@ -229,7 +289,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // date + status
+          // date + status + menu
           Row(
             children: [
               Expanded(
@@ -258,6 +318,61 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+              ),
+
+              // popup menu: delete / view map / copy
+              const SizedBox(width: 4),
+              PopupMenuButton<String>(
+                padding: EdgeInsets.zero,
+                onSelected: (value) {
+                  if (value == 'delete') {
+                    _confirmAndDelete(history.id);
+                  } else if (value == 'open_checkin' &&
+                      history.checkInLat != null &&
+                      history.checkInLng != null) {
+                    _openMaps(history.checkInLat!, history.checkInLng!);
+                  } else if (value == 'open_checkout' &&
+                      history.checkOutLat != null &&
+                      history.checkOutLng != null) {
+                    _openMaps(history.checkOutLat!, history.checkOutLng!);
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'open_checkin',
+                    enabled:
+                        history.checkInLat != null &&
+                        history.checkInLng != null,
+                    child: const Text('Buka lokasi Check-in'),
+                  ),
+                  PopupMenuItem(
+                    value: 'open_checkout',
+                    enabled:
+                        history.checkOutLat != null &&
+                        history.checkOutLng != null,
+                    child: const Text('Buka lokasi Check-out'),
+                  ),
+                  const PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: deleting
+                        ? Row(
+                            children: const [
+                              SizedBox(width: 6),
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              SizedBox(width: 12),
+                              Text('Menghapus...'),
+                            ],
+                          )
+                        : const Text('Hapus'),
+                  ),
+                ],
               ),
             ],
           ),
