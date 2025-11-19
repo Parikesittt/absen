@@ -5,6 +5,7 @@ import 'package:absen/data/models/presence_history_model.dart'; // model Presenc
 import 'package:absen/data/models/presence_stats.dart';
 import 'package:absen/data/models/user_model.dart';
 import 'package:absen/features/dashboard/data/dashboard_repository.dart';
+import 'package:absen/shared/widgets/input_field.dart';
 import 'package:absen/shared/widgets/real_time_clock.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
@@ -34,6 +35,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadCachedUser() async {
+    setState(() {
+      _loadingStats = true;
+    });
+
     final u = await PrefsService.getUserModel();
 
     if (!mounted) {
@@ -42,12 +47,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     setState(() {
+      _loadingStats = false;
       _user = u;
     });
   }
 
   void loadData() {
     // Fetch history and today's presence
+    setState(() {
+      _loadingStats = true;
+    });
 
     // presenceList (history)
     presenceList = dashRepo.getPresenceHistory().then((resp) => resp.data);
@@ -57,9 +66,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .getTodayPresence(DateTime.now())
         .then((p) {
           if (!mounted) return;
+          // print('>>> today presences: $p');
           setState(() {
             _todayPresence = p;
-            print(_todayPresence);
+            print('todaypresence $_todayPresence');
           });
         })
         .catchError((e) {
@@ -67,13 +77,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // don't block UI; leave _todayPresence as null
         });
 
-    setState(() {
-      _loadingStats = true;
-    });
     dashRepo
         .getPresenceStats()
         .then((s) {
           if (!mounted) return;
+          // print(s);
           setState(() {
             _stats = s;
             _loadingStats = false;
@@ -86,6 +94,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _loadingStats = false;
           });
         });
+  }
+
+  Future<void> _refreshAll() async {
+    // reload cached user lalu reload data.
+    // kita tunggu _loadCachedUser agar _user sudah terupdate sebelum loadData
+    await _loadCachedUser();
+    // loadData akan memanggil history, today presence, dan stats
+    loadData();
+  }
+
+  void _goToEditProfile() async {
+    // push route dan tunggu hasil. Pastikan EditProfileRoute mengembalikan `true` saat berhasil.
+    final res = await context.router.push(EditProfileRoute());
+    // jika user melakukan perubahan sukses dan kita menerima true -> refresh
+    if (res == true) {
+      // hanya panggil bila mounted
+      if (!mounted) return;
+      await _refreshAll();
+    }
   }
 
   String _formatDateReadable(DateTime? d) {
@@ -129,443 +156,539 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _addIzin() async {
+    final izinC = TextEditingController();
+    final res = await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Izin"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 12,
+            children: [InputField(hint: "Name", controller: izinC)],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: Text("Batal"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
+              child: Text("Simpan"),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (res == true) {
+      final date = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final body = {'date': date, 'alasan_izin': izinC.text};
+      final izinPresence = await dashRepo.izin(body: body);
+      if (izinPresence != null) {
+        loadData();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bool isIzin = _todayPresence?.status.value == 'izin';
     final bool hasCheckedIn =
         _todayPresence?.checkInTime != null &&
         _todayPresence!.checkInTime!.isNotEmpty;
     final bool hasCheckedOut =
         _todayPresence?.checkOutTime != null &&
         _todayPresence!.checkOutTime!.isNotEmpty;
+
+    final bool checkInEnabled = !isIzin && !hasCheckedIn;
+    final bool checkOutEnabled = !isIzin && hasCheckedIn && !hasCheckedOut;
+    final bool izinEnabled = !isIzin && !hasCheckedIn && !hasCheckedOut;
     return Scaffold(
       backgroundColor: const Color(0xFFF2F5FF),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // HEADER
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEDE38),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                children: [
-                  _buildAvatar(),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _user?.name ?? 'Loading...',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _user?.email ?? '',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF6B7280),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () {
-                      PrefsService.clear();
-                      context.router.replace(const LoginRoute());
-                    },
-                    icon: const Icon(Icons.logout),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 25),
-
-            // LIVE ATTENDANCE CARD
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Column(
-                // mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    "Live Attendance",
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Realtime clock (big)
-                  RealtimeClock(
-                    showSeconds: false,
-                    timeStyle: const TextStyle(
-                      fontSize: 42,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0066FF),
-                    ),
-                    dateStyle: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.black54,
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // --- HERE: show today's check-in / check-out times side by side ---
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Text(
-                              'Check In',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              _formatTimeShort(_todayPresence?.checkInTime),
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Text(
-                              'Check Out',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              _formatTimeShort(_todayPresence?.checkOutTime),
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // OFFICE HOURS
-                  // Container(
-                  //   padding: const EdgeInsets.symmetric(vertical: 12),
-                  //   decoration: BoxDecoration(
-                  //     color: const Color(0xFFF2F5FF),
-                  //     borderRadius: BorderRadius.circular(12),
-                  //   ),
-                  //   child: const Row(
-                  //     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  //     children: [Text("08:00 AM"), Text("-"), Text("05:00 PM")],
-                  //   ),
-                  // ),
-                  const SizedBox(height: 20),
-
-                  // BUTTONS
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: hasCheckedIn
-                                ? Colors.grey
-                                : const Color(0xFF0066FF),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: hasCheckedIn
-                              ? null
-                              : () async {
-                                  await context.router.push(
-                                    AttendanceRoute(type: 'check_in'),
-                                  );
-                                  loadData();
-                                },
-                          child: Text(
-                            hasCheckedIn ? "Sudah CheckIn" : "Check In",
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: (!hasCheckedIn || hasCheckedOut)
-                                ? Colors.grey
-                                : const Color(0xFFFF5757),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: (!hasCheckedIn || hasCheckedOut)
-                              ? null
-                              : () async {
-                                  await context.router.push(
-                                    AttendanceRoute(type: 'check_out'),
-                                  );
-                                  loadData();
-                                },
-                          child: Text(
-                            hasCheckedOut ? "Sudah CheckOut" : "Check Out",
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 30),
-
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
-                    blurRadius: 8,
-                  ),
-                ],
-              ),
-              child: _loadingStats
-                  ? const SizedBox(
-                      height: 80,
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  : _stats == null
-                  ? const SizedBox(
-                      height: 80,
-                      child: Center(child: Text('Gagal memuat statistik')),
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: RefreshIndicator(
+        onRefresh: () {
+          _refreshAll();
+          return Future.value();
+          // setState(() {});
+        },
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // HEADER
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEDE38),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    _buildAvatar(),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Total Absen
-                        _statItem(
-                          title: 'Total Absen',
-                          value: _stats!.totalAbsen.toString(),
-                          color: const Color(0xFF4A60F0),
+                        Text(
+                          _user?.name ?? 'Loading...',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        // Total Masuk
-                        _statItem(
-                          title: 'Masuk',
-                          value: _stats!.totalMasuk.toString(),
-                          color: const Color(0xFF3B82F6),
+                        const SizedBox(height: 4),
+                        Text(
+                          _user?.email ?? '',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6B7280),
+                          ),
                         ),
-                        // Total Izin
-                        _statItem(
-                          title: 'Izin',
-                          value: _stats!.totalIzin.toString(),
-                          color: const Color(0xFFFACC15),
-                        ),
-                        // Sudah Absen Hari Ini
-                        // _statItem(
-                        //   title: 'Hari ini',
-                        //   value: _stats!.sudahAbsenHariIni ? 'Ya' : 'Belum',
-                        //   color: _stats!.sudahAbsenHariIni
-                        //       ? const Color(0xFF10B981)
-                        //       : const Color(0xFFEF4444),
-                        // ),
                       ],
                     ),
-            ),
-
-            h(30),
-
-            // ATTENDANCE HISTORY TITLE
-            const Text(
-              "Attendance History",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-
-            FutureBuilder<List<Presence>>(
-              future: presenceList,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(20),
-                      child: CircularProgressIndicator(),
+                    const Spacer(),
+                    IconButton(
+                      icon: Icon(Icons.edit),
+                      onPressed: _goToEditProfile,
                     ),
-                  );
-                }
+                  ],
+                ),
+              ),
 
-                if (snapshot.hasError) {
-                  return Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: 25),
+
+              // LIVE ATTENDANCE CARD
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
                     ),
-                    child: Text(
-                      'Error: ${snapshot.error}',
-                      style: TextStyle(color: Colors.red.shade700),
-                    ),
-                  );
-                }
-
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Center(
-                      child: Text('Belum ada riwayat absensi'),
-                    ),
-                  );
-                }
-
-                final histories = snapshot.data!;
-                final displayList = histories.take(5).toList();
-
-                return Column(
-                  children: displayList.map((history) {
-                    final statusValue = history.status.value;
-                    final alasanText = history.alasanIzin;
-
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
-                            blurRadius: 6,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
+                  ],
+                ),
+                child: Column(
+                  // mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      "Live Attendance",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Realtime clock (big)
+                    RealtimeClock(
+                      showSeconds: false,
+                      timeStyle: const TextStyle(
+                        fontSize: 42,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0066FF),
+                      ),
+                      dateStyle: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black54,
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // --- HERE: show today's check-in / check-out times side by side ---
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
                             children: [
-                              Expanded(
-                                child: Text(
-                                  history.attendanceDate != null
-                                      ? _formatDateReadable(
-                                          history.attendanceDate,
-                                        )
-                                      : '-',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                              Text(
+                                'Check In',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[700],
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _badgeBackground(statusValue),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  history.status.label.toUpperCase(),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: _badgeTextColor(statusValue),
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                              const SizedBox(height: 6),
+                              Text(
+                                _formatTimeShort(_todayPresence?.checkInTime),
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],
                           ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              Text(
+                                'Check Out',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                _formatTimeShort(_todayPresence?.checkOutTime),
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
 
-                          const SizedBox(height: 8),
+                    const SizedBox(height: 20),
 
-                          Text(
-                            history.timeRangeDisplay(),
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.black54,
+                    // OFFICE HOURS
+                    // Container(
+                    //   padding: const EdgeInsets.symmetric(vertical: 12),
+                    //   decoration: BoxDecoration(
+                    //     color: const Color(0xFFF2F5FF),
+                    //     borderRadius: BorderRadius.circular(12),
+                    //   ),
+                    //   child: const Row(
+                    //     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    //     children: [Text("08:00 AM"), Text("-"), Text("05:00 PM")],
+                    //   ),
+                    // ),
+                    const SizedBox(height: 20),
+
+                    // BUTTONS
+                    Row(
+                      children: [
+                        // CHECK IN
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: checkInEnabled
+                                  ? const Color(0xFF0066FF)
+                                  : Colors.grey,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: checkInEnabled
+                                ? () async {
+                                    await context.router.push(
+                                      AttendanceRoute(type: 'check_in'),
+                                    );
+                                    loadData();
+                                  }
+                                : null,
+                            child: Text(
+                              checkInEnabled
+                                  ? "Check In"
+                                  : (isIzin
+                                        ? "Tidak bisa (Izin)"
+                                        : "Sudah CheckIn"),
                             ),
                           ),
+                        ),
 
-                          if (alasanText != null && alasanText.isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.shade50,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(
-                                    Icons.info_outline,
-                                    size: 16,
-                                    color: Colors.orange.shade700,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      alasanText,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.orange.shade900,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
+                        const SizedBox(width: 12),
+
+                        // CHECK OUT
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: checkOutEnabled
+                                  ? const Color(0xFFFF5757)
+                                  : Colors.grey,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                          ],
+                            onPressed: checkOutEnabled
+                                ? () async {
+                                    await context.router.push(
+                                      AttendanceRoute(type: 'check_out'),
+                                    );
+                                    loadData();
+                                  }
+                                : null,
+                            child: Text(
+                              checkOutEnabled
+                                  ? "Check Out"
+                                  : (isIzin
+                                        ? "Tidak bisa (Izin)"
+                                        : (hasCheckedOut
+                                              ? "Sudah CheckOut"
+                                              : "Belum CheckIn")),
+                            ),
+                          ),
+                        ),
+
+                        w(12),
+
+                        // IZIN (buat input alasan & submit)
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isIzin
+                                  ? const Color(0xFFF59E0B)
+                                  : (izinEnabled
+                                        ? const Color(0xFF10B981)
+                                        : Colors.grey),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: izinEnabled
+                                ? () async {
+                                    await _addIzin(); // pastikan _addIzin() memanggil loadData() setelah sukses
+                                    loadData();
+                                  }
+                                : null,
+                            child: Text(
+                              isIzin
+                                  ? "Izin (tercatat)"
+                                  : (izinEnabled ? "Izin" : "Tidak bisa"),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+                child: _loadingStats
+                    ? const SizedBox(
+                        height: 80,
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    : _stats == null
+                    ? const SizedBox(
+                        height: 80,
+                        child: Center(child: Text('Gagal memuat statistik')),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Total Absen
+                          _statItem(
+                            title: 'Total Absen',
+                            value: _stats!.totalAbsen.toString(),
+                            color: const Color(0xFF4A60F0),
+                          ),
+                          // Total Masuk
+                          _statItem(
+                            title: 'Masuk',
+                            value: _stats!.totalMasuk.toString(),
+                            color: const Color(0xFF3B82F6),
+                          ),
+                          // Total Izin
+                          _statItem(
+                            title: 'Izin',
+                            value: _stats!.totalIzin.toString(),
+                            color: const Color(0xFFFACC15),
+                          ),
+                          // Sudah Absen Hari Ini
+                          // _statItem(
+                          //   title: 'Hari ini',
+                          //   value: _stats!.sudahAbsenHariIni ? 'Ya' : 'Belum',
+                          //   color: _stats!.sudahAbsenHariIni
+                          //       ? const Color(0xFF10B981)
+                          //       : const Color(0xFFEF4444),
+                          // ),
                         ],
                       ),
+              ),
+
+              h(30),
+
+              // ATTENDANCE HISTORY TITLE
+              const Text(
+                "Attendance History",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+
+              FutureBuilder<List<Presence>>(
+                future: presenceList,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: CircularProgressIndicator(),
+                      ),
                     );
-                  }).toList(),
-                );
-              },
-            ),
-          ],
+                  }
+
+                  if (snapshot.hasError) {
+                    return Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Error: ${snapshot.error}',
+                        style: TextStyle(color: Colors.red.shade700),
+                      ),
+                    );
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Center(
+                        child: Text('Belum ada riwayat absensi'),
+                      ),
+                    );
+                  }
+
+                  final histories = snapshot.data!;
+                  final displayList = histories.take(5).toList();
+
+                  return Column(
+                    children: displayList.map((history) {
+                      final statusValue = history.status.value;
+                      final alasanText = history.alasanIzin;
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.04),
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    history.attendanceDate != null
+                                        ? _formatDateReadable(
+                                            history.attendanceDate,
+                                          )
+                                        : '-',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _badgeBackground(statusValue),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    history.status.label.toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: _badgeTextColor(statusValue),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 8),
+
+                            Text(
+                              history.timeRangeDisplay(),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.black54,
+                              ),
+                            ),
+
+                            if (alasanText != null &&
+                                alasanText.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      size: 16,
+                                      color: Colors.orange.shade700,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        alasanText,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.orange.shade900,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

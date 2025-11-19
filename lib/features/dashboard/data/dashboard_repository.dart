@@ -1,8 +1,10 @@
 import 'package:absen/core/constant/endpoint.dart';
 import 'package:absen/core/services/http_service.dart';
+import 'package:absen/core/services/prefs_service.dart';
 import 'package:absen/data/models/attendance_model.dart';
 import 'package:absen/data/models/presence_history_model.dart';
 import 'package:absen/data/models/presence_stats.dart';
+import 'package:intl/intl.dart';
 
 class DashboardRepository {
   final HttpService _api = HttpService();
@@ -58,24 +60,45 @@ class DashboardRepository {
   }
 
   Future<Presence?> getTodayPresence(DateTime date) async {
-    try {
-      final yyyy = date.year.toString().padLeft(4, '0');
-      final mm = date.month.toString().padLeft(2, '0');
-      final dd = date.day.toString().padLeft(2, '0');
-      final dateStr = '$yyyy-$mm-$dd';
+    final token = await PrefsService.getToken();
+    final day = DateFormat('yyyy-MM-dd').format(date);
 
-      // Kita panggil endpoint with query param "date"
-      // Endpoint.historyAbsen mis. '/absen/history' => jadi jadi '/absen/history?date=2025-11-17'
-      final endpointWithQuery = '${Endpoint.todayPresence}?date=$dateStr';
+    // kalau endpoint memerlukan query param, sesuaikan.
+    // Contoh: /absen/today?date=2025-11-17
+    final endpoint = '${Endpoint.todayPresence}?date=$day';
 
-      final json = await _api.get(endpointWithQuery);
-      final model = PresenceHistoryModel.fromJson(json);
-      if (model.data.isNotEmpty) {
-        return model.data.first;
+    final json = await _api.get(
+      endpoint,
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    // if (json == null) return null;
+    final dynamic data = json['data'];
+
+    if (data == null) return null;
+
+    if (data is Map<String, dynamic>) {
+      // langsung parse object
+      try {
+        return Presence.fromJson(data);
+      } catch (e) {
+        // parsing gagal -> return null
+        return null;
+      }
+    } else if (data is List) {
+      if (data.isEmpty) return null;
+      final first = data.first;
+      if (first is Map<String, dynamic>) {
+        try {
+          return Presence.fromJson(first);
+        } catch (e) {
+          return null;
+        }
       }
       return null;
-    } on Exception {
-      rethrow;
+    } else {
+      // unexpected shape
+      return null;
     }
   }
 
@@ -85,6 +108,15 @@ class DashboardRepository {
         Endpoint.presenceStats,
       ); // ganti konstanta ini sesuai Endpoint di project
       return PresenceStats.fromJson(json);
+    } on Exception {
+      rethrow;
+    }
+  }
+
+  Future<Presence> izin({required Map<String, dynamic> body}) async {
+    try {
+      final json = await _api.post(Endpoint.izin, body);
+      return Presence.fromJson(json);
     } on Exception {
       rethrow;
     }

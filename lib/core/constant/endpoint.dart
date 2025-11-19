@@ -12,4 +12,5 @@ class Endpoint {
   static const String todayAttendance = "/absen/today";
   static const String presenceStats = "/absen/stats";
   static const String deleteAbsen = "/absen";
+  static const String izin = "/izin";
 }
