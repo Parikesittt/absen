@@ -6,6 +6,7 @@ import 'package:absen/core/services/prefs_service.dart';
 import 'package:absen/data/models/user_model.dart';
 import 'package:absen/features/auth/data/auth_repository.dart';
 import 'package:absen/features/auth/data/models/login_request.dart';
+import 'package:absen/shared/widgets/app_footer.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -61,6 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception('Token tidak ditemukan di response');
       }
       await PrefsService.saveToken(token);
+      await PrefsService.saveLogin(true);
 
       // Ambil user payload - bisa berupa Map atau object
       final dynamic userRaw = result.data?.user;
@@ -174,62 +176,80 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 60),
-            Text("Masuk", style: Theme.of(context).textTheme.headlineMedium),
+      body: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 60),
+                  Text(
+                    "Masuk",
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
 
-            const SizedBox(height: 40),
+                  const SizedBox(height: 40),
 
-            RegisterInputField(
-              hint: "Email",
-              controller: emailC,
-              obscureText: false,
-            ),
-            const SizedBox(height: 12),
+                  RegisterInputField(
+                    hint: "Email",
+                    controller: emailC,
+                    obscureText: false,
+                  ),
+                  const SizedBox(height: 12),
 
-            RegisterInputField(
-              hint: "Password",
-              controller: passwordC,
-              obscureText: hidePassword,
-              suffix: IconButton(
-                icon: Icon(
-                  hidePassword ? Icons.visibility_off : Icons.visibility,
-                ),
-                onPressed: () {
-                  setState(() {
-                    hidePassword = !hidePassword;
-                  });
-                },
+                  RegisterInputField(
+                    hint: "Password",
+                    controller: passwordC,
+                    obscureText: hidePassword,
+                    suffix: IconButton(
+                      icon: Icon(
+                        hidePassword ? Icons.visibility_off : Icons.visibility,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          hidePassword = !hidePassword;
+                        });
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 25),
+
+                  AppButton(
+                    text: _isLoading ? "Loading..." : "Masuk",
+                    onPressed: submit,
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  TextButton(
+                    onPressed: () {
+                      context.pushRoute(const ForgotPasswordEmailRoute());
+                      // TODO: forgot password flow
+                    },
+                    child: const Text("Lupa Password?"),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      context.pushRoute(const RegisterRoute());
+                    },
+                    child: const Text("Belum punya akun? Daftar"),
+                  ),
+                  // Spacer(),
+                ],
               ),
             ),
-
-            const SizedBox(height: 25),
-
-            AppButton(
-              text: _isLoading ? "Loading..." : "Masuk",
-              onPressed: submit,
+          ),
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: const [AppFooter()],
             ),
-
-            const SizedBox(height: 15),
-
-            TextButton(
-              onPressed: () {
-                // TODO: forgot password flow
-              },
-              child: const Text("Lupa Password?"),
-            ),
-            TextButton(
-              onPressed: () {
-                context.pushRoute(const RegisterRoute());
-              },
-              child: const Text("Belum punya akun? Daftar"),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

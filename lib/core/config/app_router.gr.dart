@@ -94,6 +94,69 @@ class EditProfileRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
+/// [ForgotPasswordEmailScreen]
+class ForgotPasswordEmailRoute extends PageRouteInfo<void> {
+  const ForgotPasswordEmailRoute({List<PageRouteInfo>? children})
+    : super(ForgotPasswordEmailRoute.name, initialChildren: children);
+
+  static const String name = 'ForgotPasswordEmailRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const ForgotPasswordEmailScreen();
+    },
+  );
+}
+
+/// generated route for
+/// [ForgotPasswordOtpScreen]
+class ForgotPasswordOtpRoute extends PageRouteInfo<ForgotPasswordOtpRouteArgs> {
+  ForgotPasswordOtpRoute({
+    Key? key,
+    required String email,
+    List<PageRouteInfo>? children,
+  }) : super(
+         ForgotPasswordOtpRoute.name,
+         args: ForgotPasswordOtpRouteArgs(key: key, email: email),
+         initialChildren: children,
+       );
+
+  static const String name = 'ForgotPasswordOtpRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final args = data.argsAs<ForgotPasswordOtpRouteArgs>();
+      return ForgotPasswordOtpScreen(key: args.key, email: args.email);
+    },
+  );
+}
+
+class ForgotPasswordOtpRouteArgs {
+  const ForgotPasswordOtpRouteArgs({this.key, required this.email});
+
+  final Key? key;
+
+  final String email;
+
+  @override
+  String toString() {
+    return 'ForgotPasswordOtpRouteArgs{key: $key, email: $email}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! ForgotPasswordOtpRouteArgs) return false;
+    return key == other.key && email == other.email;
+  }
+
+  @override
+  int get hashCode => key.hashCode ^ email.hashCode;
+}
+
+/// generated route for
 /// [HistoryScreen]
 class HistoryRoute extends PageRouteInfo<void> {
   const HistoryRoute({List<PageRouteInfo>? children})
@@ -169,6 +232,80 @@ class RegisterRoute extends PageRouteInfo<void> {
     name,
     builder: (data) {
       return const RegisterScreen();
+    },
+  );
+}
+
+/// generated route for
+/// [ResetPasswordScreen]
+class ResetPasswordRoute extends PageRouteInfo<ResetPasswordRouteArgs> {
+  ResetPasswordRoute({
+    Key? key,
+    required String email,
+    required String otp,
+    List<PageRouteInfo>? children,
+  }) : super(
+         ResetPasswordRoute.name,
+         args: ResetPasswordRouteArgs(key: key, email: email, otp: otp),
+         initialChildren: children,
+       );
+
+  static const String name = 'ResetPasswordRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final args = data.argsAs<ResetPasswordRouteArgs>();
+      return ResetPasswordScreen(
+        key: args.key,
+        email: args.email,
+        otp: args.otp,
+      );
+    },
+  );
+}
+
+class ResetPasswordRouteArgs {
+  const ResetPasswordRouteArgs({
+    this.key,
+    required this.email,
+    required this.otp,
+  });
+
+  final Key? key;
+
+  final String email;
+
+  final String otp;
+
+  @override
+  String toString() {
+    return 'ResetPasswordRouteArgs{key: $key, email: $email, otp: $otp}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! ResetPasswordRouteArgs) return false;
+    return key == other.key && email == other.email && otp == other.otp;
+  }
+
+  @override
+  int get hashCode => key.hashCode ^ email.hashCode ^ otp.hashCode;
+}
+
+/// generated route for
+/// [SplashScreen]
+class SplashRoute extends PageRouteInfo<void> {
+  const SplashRoute({List<PageRouteInfo>? children})
+    : super(SplashRoute.name, initialChildren: children);
+
+  static const String name = 'SplashRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const SplashScreen();
     },
   );
 }

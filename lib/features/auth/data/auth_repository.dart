@@ -27,4 +27,35 @@ class AuthRepository {
       rethrow;
     }
   }
+
+  Future<String> sendOtp(String email) async {
+    try {
+      final body = {'email': email};
+      final json = await _api.post(Endpoint.sendOtp, body);
+      // Jika API konsisten mengembalikan object dengan key 'message'
+      final msg = (json['message'] ?? '') as String;
+      return msg;
+    } on Exception {
+      // jika kamu punya ApiException, ubah di sini
+      // contoh sederhana:
+      rethrow;
+      // throw ApiException(message: e.toString());
+    }
+  }
+
+  Future<String> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    try {
+      final body = {'email': email, 'otp': otp, 'password': newPassword};
+      final json = await _api.post(Endpoint.resetPass, body);
+      final msg = (json['message'] ?? '') as String;
+      return msg;
+    } on Exception {
+      rethrow;
+      // throw ApiException(message: e.toString());
+    }
+  }
 }

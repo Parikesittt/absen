@@ -4,6 +4,7 @@ import 'package:absen/core/services/http_service.dart'; // untuk exception types
 import 'package:absen/core/services/prefs_service.dart';
 import 'package:absen/data/models/profile_model.dart';
 import 'package:absen/features/profile/data/profile_repository.dart';
+import 'package:absen/shared/widgets/app_footer.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 
@@ -85,54 +86,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildHeader(context),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 160,
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    : (_error != null)
-                    ? _buildErrorCard()
-                    : _buildProfileCard(),
-              ),
-              const SizedBox(height: 20),
-              _buildMenuList(),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 30,
-                ),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFEF4444),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  _buildHeader(context),
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 160,
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        : (_error != null)
+                        ? _buildErrorCard()
+                        : _buildProfileCard(),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildMenuList(),
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 30,
+                    ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFEF4444),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () async {
+                          // logout manual: clear + go to login
+                          PrefsService.clear();
+                          context.router.replace(const LoginRoute());
+                        },
+                        child: const Text(
+                          "Keluar",
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
                       ),
                     ),
-                    onPressed: () async {
-                      // logout manual: clear + go to login
-                      PrefsService.clear();
-                      context.router.replace(const LoginRoute());
-                    },
-                    child: const Text(
-                      "Keluar",
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
+            ),
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: const [AppFooter()],
+              ),
+            ),
+          ],
         ),
       ),
     );

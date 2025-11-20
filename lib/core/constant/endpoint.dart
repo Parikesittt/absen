@@ -13,4 +13,6 @@ class Endpoint {
   static const String presenceStats = "/absen/stats";
   static const String deleteAbsen = "/absen";
   static const String izin = "/izin";
+  static const String sendOtp = "/forgot-password";
+  static const String resetPass = "/reset-password";
 }

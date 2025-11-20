@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class PrefsService {
   static const String tokenKey = 'token';
+  static const String isLoginKey = 'isLogin';
   static const String userKey = 'user_json';
 
   static Future<void> saveToken(String token) async {
@@ -16,6 +17,16 @@ class PrefsService {
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(tokenKey);
+  }
+
+  static Future<void> saveLogin(bool isLogin) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(isLoginKey, isLogin);
+  }
+
+  static Future<bool?> getLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(isLoginKey);
   }
 
   static Future<void> saveUserJson(UserModel user) async {

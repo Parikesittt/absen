@@ -25,7 +25,7 @@ class MyApp extends StatelessWidget {
     final themeProvider = Provider.of<ThemeProvider>(context);
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
-      title: 'Absen App',
+      title: 'AttendifyX',
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: themeProvider.isDark ? ThemeMode.dark : ThemeMode.light,

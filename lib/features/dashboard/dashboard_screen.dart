@@ -435,9 +435,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         ),
 
-                        w(12),
-
-                        // IZIN (buat input alasan & submit)
+                        // w(12),
+                      ],
+                    ),
+                    h(30),
+                    // IZIN (buat input alasan & submit)
+                    Row(
+                      children: [
                         Expanded(
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
